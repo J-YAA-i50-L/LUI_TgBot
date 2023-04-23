@@ -1,0 +1,242 @@
+import datetime
+import logging
+import threading
+
+import schedule as schedule
+from telegram import ForceReply, Update
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ConversationHandler, \
+    CallbackContext
+from for_db import *
+from geocod import *
+from work_of_api import *
+
+from TOKEN import TOKEN  # Токен
+
+# Enable logging
+logging.basicConfig(filename='logging.log',
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG
+                    )
+
+logger = logging.getLogger(__name__)
+
+
+# Define a few command handlers. These usually take the two arguments update and
+# context.
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /start is issued."""
+    user = update.effective_user
+    add_user(user)
+    await update.message.reply_html(
+        rf"Hi {user.mention_html()}!",
+        reply_markup=ForceReply(selective=True),
+    )
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Отправит список команд, когда будет выдана команда /help."""
+    await update.message.reply_text('Команды: \n "/catalog" - показывает каталог товаров магазина \n')
+
+
+async def document_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Отправит xls файл, когда будет выдана команда /document."""
+    if is_status(update.effective_user.id):
+        get_info_for_base()
+        await update.message.reply_document(document='Таблица_Excel_БД.xlsx')
+    else:
+        await update.message.reply_text('У вас нет прав для данной команды.')
+
+
+async def location(update, context):
+    """Принимает геопозицию пользователя и обрабатывает её"""
+    if update.edited_message:
+        loc = update.edited_message
+    else:
+        loc = update.message
+    current_position = (loc.location.latitude, loc.location.longitude)
+    # Создаем строку вида {ДОЛГОТА}, {ШИРИНА}
+    coords = f"{current_position[0]},{current_position[1]}"
+    await update.message.reply_text(coords)
+
+
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Повторите сообщение пользователя."""
+    print(update.message.chat_id)
+    await update.message.reply_text(update.message.text)
+
+
+async def doc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Ждет файл xlxs т администратора"""
+    await update.message.reply_text('Отпавте файл xlsx с изминениями')
+    return 0
+
+
+async def document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Повторите сообщение пользователя."""
+    get_info_for_base()
+    await update.message.reply_document('Таблица_Excel_БД.xlsx')
+
+
+async def statys(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Назначает пользователя администратором, когда будет выдана команда /statys [password]."""
+    password = update.message.text[8:]
+    user = update.effective_user
+    if password == '1234':
+        remove_status(user.id)
+        await update.message.reply_html(rf"{user.mention_html()} назначен администратором!",
+                                        reply_markup=ForceReply(selective=True), )
+    else:
+        await update.message.reply_text('У вас нет прав!!!')
+
+
+async def check_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Повторите сообщение пользователя."""
+    a = update.message.document
+    if not a:
+        await update.message.reply_text('не то')
+        return ConversationHandler.END
+
+    get_file_of_tg(a.file_id, TOKEN)
+    if not check_file_of_tg():
+        await update.message.reply_text('pppp')
+    else:
+        await update.message.reply_text('Полностью ')
+        return 1
+    return ConversationHandler.END
+
+
+async def remove_bzd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    dow_remove_for_tg(update.message.text)
+    await update.message.reply_text('внесены изменения')
+
+
+async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Связь с админимтратором, когда будет выдана команда /admin."""
+    await update.message.reply_text('Администратор ответит на все интересующие вас вопросы. '
+                                    'С ним можно связаться по телефону: +79202980333')
+
+
+async def home_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Магазины на карте, когда будет выдана команда /geo."""
+    try:
+        maps = maps_global()
+        print(maps)
+        await update.message.reply_photo(maps)
+        await update.message.reply_text('У нас две точки по адресам:'
+                                        '\n\t 1. г.Арзамас, просп. Ленина, 121, TЦ «Метро» 3 здание, 1 этаж'
+                                        '\n\t 2. г.Арзамас, Парковая ул., 14А, ТЦ «Славянский»,1 этаж, отдел номер 7')
+    except RuntimeError as ex:
+        await update.message.reply_text('Что то пошло не по плану')
+
+
+async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Магазины на карте, когда будет выдана команда /geo."""
+    await update.message.reply_text('stop')
+    return ConversationHandler.END
+
+
+async def send_of_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Связь с админимтратором, когда будет выдана команда /admin."""
+    await update.message.reply_text('Введите текст, который вы планнируете отправить пользователям.')
+    return 0
+
+
+async def get_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Связь с админимтратором, когда будет выдана команда /admin."""
+    context.user_data['0'] = update.message.text
+
+    await update.message.reply_text('Введите дату в формате год:месяц:день, например, 2023:03:19\n'
+                                    'Если вы хотите отправить сообщение сейчас отправьте "сейчас".')
+    return 1
+
+
+async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Связь с админимтратором, когда будет выдана команда /admin."""
+    if update.message.text == 'Сейчас':
+        send_message()
+    print(context.user_data['0'])
+
+    await update.message.reply_text('')
+    return ConversationHandler.END
+
+
+def send_message(flag, text=''):
+    if flag:
+        today = ':'.join([str(datetime.date.today().year), str(datetime.date.today().month), str(datetime.date.today().day)])
+        print(today)
+        text = [i[1] for i in get_notification() if i[2] == today]
+        print(text)
+    for i in get_no_admin_id():
+        sendMessage(i, '\n'.join(text), TOKEN)
+
+
+def threat():  # второй поток для рассылки
+    while True:
+        schedule.run_pending()
+
+
+def main() -> None:
+    """Запустите бота."""
+    # Создайте приложение и передайте ему токен вашего бота.
+    application = Application.builder().token(TOKEN).build()
+    # schedule.every().day.at("16:04").do(send_message, True)  # рассылка уведомлений
+    # threading.Thread(target=threat).start()
+    # script_registration = ConversationHandler(
+    #     # Точка входа в диалог.
+    #     # В данном случае — команда /start. Она задаёт первый вопрос.
+    #     entry_points=[CommandHandler('doc_post', doc)],
+    #     # Состояние внутри диалога.
+    #     states={
+    #         0: [MessageHandler(filters.ALL & ~filters.COMMAND, check_file)],
+    #         1: [MessageHandler(filters.ALL & ~filters.COMMAND, remove_bzd)]
+    #     },
+    #     # Точка прерывания диалога. В данном случае — команда /stop.
+    #     allow_reentry=False,
+    #     fallbacks=[CommandHandler('stop', stop)]
+    # )
+    # script_catalog = ConversationHandler(
+    #     # Точка входа в диалог.
+    #     # В данном случае — команда /start. Она задаёт первый вопрос.
+    #     entry_points=[CommandHandler('catalog', catalog_command)],
+    #     # Состояние внутри диалога.
+    #     states={
+    #         0: [MessageHandler(filters.ALL & ~filters.COMMAND, asortiment)]
+    #     },
+    #     # Точка прерывания диалога. В данном случае — команда /stop.
+    #     allow_reentry=False,
+    #     fallbacks=[CommandHandler('stop', stop)]
+    # )
+    # script_send = ConversationHandler(
+    #     # Точка входа в диалог.
+    #     # В данном случае — команда /start. Она задаёт первый вопрос.
+    #     entry_points=[CommandHandler("send_message", send_of_admin_message)],
+    #     # Состояние внутри диалога.
+    #     states={
+    #         0: [MessageHandler(filters.ALL & ~filters.COMMAND, get_text)],
+    #         1: [MessageHandler(filters.ALL & ~filters.COMMAND, get_time)]
+    #     },
+    #     # Точка прерывания диалога. В данном случае — команда /stop.
+    #     allow_reentry=False,
+    #     fallbacks=[CommandHandler('stop', stop)]
+    # )
+    # по разным командам - отвечайте в Telegram
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("statys", statys))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("administrator", admin_command))
+    application.add_handler(CommandHandler("dnt", document))
+    # application.add_handler(script_registration)
+    # application.add_handler(script_catalog)
+    # application.add_handler(script_send)
+    application.add_handler(CommandHandler("document", document_command))
+    # по некомандному, то есть сообщению - повторить сообщение в Telegram
+    createBD()
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+
+    # Запускайте бота до тех пор, пока пользователь не нажмет Ctrl-C
+    application.run_polling()
+
+
+if __name__ == "__main__":
+    main()
+
