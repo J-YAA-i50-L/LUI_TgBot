@@ -24,7 +24,10 @@ def createBD():  # инициализация класса
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name STRING, 
     flag STRING, 
-    http STRING);"""
+    http STRING
+    id_tg INTEGER
+    NOT NULL
+    REFERENCES users (id_tg));"""
 
     # Создание отсутствующих и необходимых таблиц
     con.cursor().execute(users)
@@ -33,12 +36,12 @@ def createBD():  # инициализация класса
     con.commit()
 
 
-def add_user(user):
+def add_user(first_name, id, username, language_code, last_name):
     """Создаёт нового пользователя"""
     con = sqlite3.connect('database.db', check_same_thread=False)
     con.cursor().execute(f'''INSERT INTO users(name, status, id_tg, username, language, surname)
-                            VALUES('{user.first_name}', False, {user.id}, "{user.username}",
-                            '{user.language_code}', '{user.last_name}')''')
+                            VALUES('{first_name}', False, {id}, "{username}",
+                            '{language_code}', '{last_name}')''')
     con.commit()
 
 
@@ -67,10 +70,10 @@ def get_id_maps(id_category):
           FROM maps WHERE category = "{id_category}"''').fetchall()
 
 
-def add_maps(name, flag, http):
+def add_maps(name, flag, http, id_tg):
     con = sqlite3.connect('database.db', check_same_thread=False)
-    con.cursor().execute(f'''INSERT INTO maps(name, flag, http)
-                         VALUES('{name}', '{flag}', '{http}')''')
+    con.cursor().execute(f'''INSERT INTO maps(name, flag, http, id_tg)
+                         VALUES('{name}', '{flag}', '{http}', '{id_tg}')''')
     con.commit()
 
 
@@ -120,7 +123,7 @@ def get_maps():
 
 
 def get_name_maps():
-    """Возвращает список всех карт"""
+    """Возвращает список имен всех карт"""
     con = sqlite3.connect('database.db', check_same_thread=False)
     return con.cursor().execute('''SELECT name FROM maps''').fetchall()
 
@@ -134,8 +137,8 @@ def get_info_for_base():
         con.cursor().execute(f'''SELECT id, name, status, id_tg, username, language, surname FROM users''').fetchall()
     itog.append(users)
 
-    maps = 'Карты', [('ID', 'Приватность(Приватная - True, общая - False)', 'Ссылка')] + \
-        con.cursor().execute(f'''SELECT id, name, flag, http FROM maps''').fetchall()
+    maps = 'Карты', [('ID', 'Приватность(Приватная - True, общая - False)', 'Ссылка', 'id_tg')] + \
+        con.cursor().execute(f'''SELECT id, name, flag, http, id_tg FROM maps''').fetchall()
     itog.append(maps)
 
     questions = 'Вопросы', [('Вопрос', 'Ответ')] + \
@@ -154,32 +157,43 @@ def get_info_for_base():
 
 
 def dow_remove_for_tg(format):
+    """Создает базу данных по примеру xslx файла"""
     if format:
         del_all()
-    df = pd.read_excel(io='bot_LUI_БД.xlsx', sheet_name=0)
+    df = pd.read_excel(io=format, sheet_name=0)
     book = df.head(10000).values
     for lis in book:
-        add_user(int(lis[3]), lis[1], lis[4])
+        add_user(lis[1], lis[3], lis[4], lis[5], lis[6])
         if lis[2]:
-            remove_status(int(lis[3]))
-    # df = pd.read_excel(io='dow.xlsx', sheet_name=1)
-    # book = df.head(10000).values
-    # for lis in book:
-    #     add_category(lis[1], lis[2])
-    # df = pd.read_excel(io='dow.xlsx', sheet_name=2)
-    # book = df.head(10000).values
-    # for lis in book:
-    #     add_notification(lis[0], lis[1])
-    # book = df.head(10000).values
-    # for lis in book:
-    #     add_que_ans(lis[0], lis[1])
-    # book = df.head(10000).values
-    # for lis in book:
-    #     add_discount(lis[0], lis[1])
-    print(book)
+            remove_stint(lis[3])
+    df = pd.read_excel(io=format, sheet_name=1)
+    book = df.head(10000).values
+    for lis in book:
+        add_maps(lis[1], lis[2], lis[3], lis[4])
+    df = pd.read_excel(io=format, sheet_name=2)
+    book = df.head(10000).values
+    for lis in book:
+        add_que_ans(lis[0], lis[1])
+    # print(book)
+
+
+def check_file_of_tg():
+    a = [['ID', 'ФИО', 'Должность(1-админ, 0-клиент', 'ID TG', 'UserName'],
+         ['ID Категории', 'Название категории', 'Путь к файлу картинки'],
+         ['Сообщение', 'Дата отправления'],
+         ['Вопрос', 'Ответ'],
+         ['Название', 'Описание']]
+    flag = True
+    for sheet in range(5):
+        df = pd.read_excel(io='dow.xlsx', sheet_name=sheet)
+        if ''.join(df.head(0).columns.values) != ''.join(a[sheet]):
+            flag = False
+            break
+    return flag
 
 
 def del_all():
+    """Очистка базы данных"""
     con = sqlite3.connect('database.db', check_same_thread=False)
     con.cursor().execute(f'''DELETE from maps''')
     con.cursor().execute(f'''DELETE from users''')
