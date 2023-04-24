@@ -95,6 +95,7 @@ def get_user_maps(id_tg):
 
 
 def get_status_maps(name, id_tg):
+    """возвращает Ссылку на карту"""
     con = sqlite3.connect('database.db', check_same_thread=False)
     a = con.cursor().execute(f'''SELECT flag, id_tg
           FROM maps WHERE name = "{name}"''').fetchall()[0]
