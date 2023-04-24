@@ -10,24 +10,25 @@ def createBD():  # инициализация класса
         key_words STRING NOT NULL,
         answer    STRING NOT NULL);"""
 
-    users = """CREATE TABLE IF NOT EXISTS users (
-    id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    name   STRING  NOT NULL,
-    status BOOLEAN NOT NULL,
-    id_tg  INTEGER NOT NULL 
-    UNIQUE,
+    users = """CREATE TABLE users (
+    id       INTEGER UNIQUE
+                     PRIMARY KEY,
+    name     STRING  NOT NULL,
+    status   BOOLEAN NOT NULL,
+    id_tg    INTEGER NOT NULL
+                     UNIQUE,
     username STRING,
     language STRING,
-    surname STRING);"""
+    surname  STRING);"""
 
-    maps = """CREATE TABLE IF NOT EXISTS maps ( 
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name STRING, 
-    flag STRING, 
-    http STRING
-    id_tg INTEGER
-    NOT NULL
-    REFERENCES users (id_tg));"""
+    maps = """CREATE TABLE maps (
+    id    INTEGER UNIQUE
+                  PRIMARY KEY,
+    name  STRING  UNIQUE,
+    flag  BOOLEAN,
+    http  STRING,
+    id_tg INTEGER NOT NULL
+                  REFERENCES users (id_tg));"""
 
     # Создание отсутствующих и необходимых таблиц
     con.cursor().execute(users)
@@ -64,17 +65,29 @@ def get_name_maps(name):
              FROM maps WHERE category = "{id_category}"''').fetchall()
 
 
-def get_id_maps(id_category):
-    con = sqlite3.connect('database.db', check_same_thread=False)
-    return con.cursor().execute(f'''SELECT id, name, description, http
-          FROM maps WHERE category = "{id_category}"''').fetchall()
-
-
 def add_maps(name, flag, http, id_tg):
     con = sqlite3.connect('database.db', check_same_thread=False)
     con.cursor().execute(f'''INSERT INTO maps(name, flag, http, id_tg)
                          VALUES('{name}', '{flag}', '{http}', '{id_tg}')''')
     con.commit()
+
+
+def get_http_maps(name):
+    con = sqlite3.connect('database.db', check_same_thread=False)
+    return con.cursor().execute(f'''SELECT http
+          FROM maps WHERE name = "{name}"''').fetchall()
+
+
+def get_status_maps(name, id_tg):
+    con = sqlite3.connect('database.db', check_same_thread=False)
+    a = con.cursor().execute(f'''SELECT flag, id_tg
+          FROM maps WHERE name = "{name}"''').fetchall()[0]
+    if a[0] and id_tg == a[1]:
+        return get_http_maps(name)[0][0]
+    elif not a[0] and id_tg != a[1]:
+        return get_http_maps(name)[0][0]
+    else:
+        return False
 
 
 def del_maps(name):
@@ -137,7 +150,7 @@ def get_info_for_base():
         con.cursor().execute(f'''SELECT id, name, status, id_tg, username, language, surname FROM users''').fetchall()
     itog.append(users)
 
-    maps = 'Карты', [('ID', 'Приватность(Приватная - True, общая - False)', 'Ссылка', 'id_tg')] + \
+    maps = 'Карты', [('ID', 'Название', 'Приватность(Приватная - True, общая - False)', 'Ссылка', 'id_tg')] + \
         con.cursor().execute(f'''SELECT id, name, flag, http, id_tg FROM maps''').fetchall()
     itog.append(maps)
 
@@ -206,6 +219,7 @@ def get_no_admin_id():
     return con.cursor().execute(f'''SELECT id_tg FROM users WHERE status = False''')
 
 
+# print(get_status_maps('3', '1'))
 # get_info_for_base()
 dow_remove_for_tg('bot_LUI_БД.xlsx')
 # createBD()

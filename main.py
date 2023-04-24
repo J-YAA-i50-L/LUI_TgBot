@@ -3,7 +3,7 @@ import logging
 import threading
 
 import schedule as schedule
-from telegram import ForceReply, Update
+from telegram import ForceReply, Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, ConversationHandler, \
     CallbackContext
 from for_db import *
@@ -20,17 +20,24 @@ logging.basicConfig(filename='logging.log',
 logger = logging.getLogger(__name__)
 
 
-# Define a few command handlers. These usually take the two arguments update and
-# context.
+reply_keyboard = [['/maps', '/weather'],
+                  ['/music', '/KinoPoisk']]
+markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
     add_user(user.first_name, user.id, user.username, user.language_code, user.last_name)
+    await update.message.reply_photo('LUI_logotip.png')
     await update.message.reply_html(
-        rf"Hi {user.mention_html()}!",
-        reply_markup=ForceReply(selective=True),
-    )
+        f"Привет, {user.mention_html()}! Я Telegram-бот помощник LUI, который умеет работать с сервисами  Яндекса. \n"
+        f"Для начала работы выберите сервис, либо пишите, что хотите: \n"
+        f"  - /maps - Яндекс карта\n"
+        f"  - /weather - Яндекс погода\n"
+        f"  - /music - Яндекс музыка\n"
+        f"  - /KinoPoisk - КиноПоиск\n",
+        reply_markup=markup)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -175,12 +182,16 @@ def threat():  # второй поток для рассылки
         schedule.run_pending()
 
 
+async def maps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text('Введите дату в формате год:месяц:день, например, 2023:03:19\n'
+                                    'Если вы хотите отправить сообщение сейчас отправьте "сейчас".')
+    return 1
+
+
 def main() -> None:
     """Запустите бота."""
     # Создайте приложение и передайте ему токен вашего бота.
     application = Application.builder().token(TOKEN).build()
-    # schedule.every().day.at("16:04").do(send_message, True)  # рассылка уведомлений
-    # threading.Thread(target=threat).start()
     # script_registration = ConversationHandler(
     #     # Точка входа в диалог.
     #     # В данном случае — команда /start. Она задаёт первый вопрос.
@@ -194,18 +205,18 @@ def main() -> None:
     #     allow_reentry=False,
     #     fallbacks=[CommandHandler('stop', stop)]
     # )
-    # script_catalog = ConversationHandler(
-    #     # Точка входа в диалог.
-    #     # В данном случае — команда /start. Она задаёт первый вопрос.
-    #     entry_points=[CommandHandler('catalog', catalog_command)],
-    #     # Состояние внутри диалога.
-    #     states={
-    #         0: [MessageHandler(filters.ALL & ~filters.COMMAND, asortiment)]
-    #     },
-    #     # Точка прерывания диалога. В данном случае — команда /stop.
-    #     allow_reentry=False,
-    #     fallbacks=[CommandHandler('stop', stop)]
-    # )
+    script_maps = ConversationHandler(
+        # Точка входа в диалог.
+        # В данном случае — команда /start. Она задаёт первый вопрос.
+        entry_points=[CommandHandler('maps', maps_command)],
+        # Состояние внутри диалога.
+        states={
+            0: [MessageHandler(filters.ALL & ~filters.COMMAND, asortiment)]
+        },
+        # Точка прерывания диалога. В данном случае — команда /stop.
+        allow_reentry=False,
+        fallbacks=[CommandHandler('stop', stop)]
+    )
     # script_send = ConversationHandler(
     #     # Точка входа в диалог.
     #     # В данном случае — команда /start. Она задаёт первый вопрос.
@@ -230,7 +241,7 @@ def main() -> None:
     # application.add_handler(script_send)
     application.add_handler(CommandHandler("document", document_command))
     # по некомандному, то есть сообщению - повторить сообщение в Telegram
-    createBD()
+    # createBD()
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     # Запускайте бота до тех пор, пока пользователь не нажмет Ctrl-C
