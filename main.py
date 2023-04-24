@@ -20,9 +20,13 @@ logging.basicConfig(filename='logging.log',
 logger = logging.getLogger(__name__)
 
 
-reply_keyboard = [['/maps', '/weather'],
-                  ['/music', '/KinoPoisk']]
+reply_keyboard = [['/maps', '/weather', '/music'],
+                  ['/constructed_maps', '/KinoPoisk']]
+
+constructed_maps_keyboard = [['/user_maps', '/all_maps'],
+                             ['/constructed']]
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+constructed_maps_markup = ReplyKeyboardMarkup(constructed_maps_keyboard, one_time_keyboard=False)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -182,10 +186,36 @@ def threat():  # второй поток для рассылки
         schedule.run_pending()
 
 
-async def maps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Введите дату в формате год:месяц:день, например, 2023:03:19\n'
-                                    'Если вы хотите отправить сообщение сейчас отправьте "сейчас".')
-    return 1
+async def constructed_maps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text('Вы выбрали сервис яндекс карты. Команды:\n'
+                                    '   - /all_maps - показывает все карты общего доступа\n'
+                                    '   - /user_maps - выводит карты пользователя\n'
+                                    '   - /constructed - конструктор карт яндекс\n'
+                                    '   - /return_maps [Название] - Вернет ссылку на яндекс карту\n',
+                                    reply_markup=constructed_maps_markup)
+
+
+async def all_maps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f'Карты общего доступа:\n{get_all_maps()}',
+                                    reply_markup=markup)
+
+
+async def user_maps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    dem = get_user_maps(user.id)
+    if dem:
+        await update.message.reply_text(f'Ваши карты:\n{get_user_maps(user.id)}', reply_markup=markup)
+    else:
+        await update.message.reply_text(f'У вас нет карт', reply_markup=markup)
+
+
+async def constructed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f'Создать новую карту можно на cайте:https://yandex.ru/map-constructor/',
+                                    reply_markup=markup)
+    await update.message.reply_photo('qr_constructed.png')
+
+
+
 
 
 def main() -> None:
@@ -205,18 +235,30 @@ def main() -> None:
     #     allow_reentry=False,
     #     fallbacks=[CommandHandler('stop', stop)]
     # )
-    script_maps = ConversationHandler(
-        # Точка входа в диалог.
-        # В данном случае — команда /start. Она задаёт первый вопрос.
-        entry_points=[CommandHandler('maps', maps_command)],
-        # Состояние внутри диалога.
-        states={
-            0: [MessageHandler(filters.ALL & ~filters.COMMAND, asortiment)]
-        },
-        # Точка прерывания диалога. В данном случае — команда /stop.
-        allow_reentry=False,
-        fallbacks=[CommandHandler('stop', stop)]
-    )
+    # script_constructed_maps = ConversationHandler(
+    #     # Точка входа в диалог.
+    #     # В данном случае — команда /start. Она задаёт первый вопрос.
+    #     entry_points=[CommandHandler('constructed_maps', constructed_maps_command)],
+    #     # Состояние внутри диалога.
+    #     states={
+    #         0: [MessageHandler(filters.ALL & ~filters.COMMAND, asortiment)]
+    #     },
+    #     # Точка прерывания диалога. В данном случае — команда /stop.
+    #     allow_reentry=False,
+    #     fallbacks=[CommandHandler('my_maps', constructed_maps_comand)]
+    # )
+    # script_maps = ConversationHandler(
+    #     # Точка входа в диалог.
+    #     # В данном случае — команда /start. Она задаёт первый вопрос.
+    #     entry_points=[CommandHandler('maps', maps_command)],
+    #     # Состояние внутри диалога.
+    #     states={
+    #         0: [MessageHandler(filters.ALL & ~filters.COMMAND, asortiment)]
+    #     },
+    #     # Точка прерывания диалога. В данном случае — команда /stop.
+    #     allow_reentry=False,
+    #     fallbacks=[CommandHandler('my_maps', constructed_maps_comand)]
+    # )
     # script_send = ConversationHandler(
     #     # Точка входа в диалог.
     #     # В данном случае — команда /start. Она задаёт первый вопрос.
@@ -236,6 +278,12 @@ def main() -> None:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("administrator", admin_command))
     application.add_handler(CommandHandler("dnt", document))
+
+    application.add_handler(CommandHandler('constructed_maps', constructed_maps_command))
+    application.add_handler(CommandHandler('all_maps', all_maps_command))
+    application.add_handler(CommandHandler('user_maps', user_maps_command))
+    application.add_handler(CommandHandler('constructed', constructed_command))
+
     # application.add_handler(script_registration)
     # application.add_handler(script_catalog)
     # application.add_handler(script_send)

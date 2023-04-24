@@ -78,6 +78,22 @@ def get_http_maps(name):
           FROM maps WHERE name = "{name}"''').fetchall()
 
 
+def get_all_maps():
+    con = sqlite3.connect('database.db', check_same_thread=False)
+    dem = con.cursor().execute(f'''SELECT name
+              FROM maps WHERE flag = "False"''').fetchall()
+    a = [f'    {j + 1}. - {i[0]}' for j, i in enumerate(dem)]
+    return '\n'.join(a)
+
+
+def get_user_maps(id_tg):
+    """Возвращает список всех карт"""
+    con = sqlite3.connect('database.db', check_same_thread=False)
+    dem = con.cursor().execute(f'''SELECT name FROM maps WHERE id_tg = "{id_tg}"''').fetchall()
+    a = [f'    {j + 1}. - {i[0]}' for j, i in enumerate(dem)]
+    return '\n'.join(a)
+
+
 def get_status_maps(name, id_tg):
     con = sqlite3.connect('database.db', check_same_thread=False)
     a = con.cursor().execute(f'''SELECT flag, id_tg
@@ -129,10 +145,7 @@ def remove_status(id_tg):
     con.commit()
 
 
-def get_maps():
-    """Возвращает список всех карт"""
-    con = sqlite3.connect('database.db', check_same_thread=False)
-    return con.cursor().execute('''SELECT * FROM maps''').fetchall()
+
 
 
 def get_name_maps():
@@ -221,7 +234,8 @@ def get_no_admin_id():
 
 # print(get_status_maps('3', '1'))
 # get_info_for_base()
-dow_remove_for_tg('bot_LUI_БД.xlsx')
+# print(get_all_maps())
+# dow_remove_for_tg('bot_LUI_БД.xlsx')
 # createBD()
 # add_que_ans('12', '34')
 # add_maps('new', '1', 'dsajhxa')
