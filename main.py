@@ -232,6 +232,25 @@ async def return_maps_http_command(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text(f'Данная карта не найдена или у вас нет доступа к ней', reply_markup=markup)
 
 
+async def maps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f'Отправите свою геопозицию.',
+                                    reply_markup=markup)
+    return 0
+
+
+async def location_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if update.edited_message:
+        loc = update.edited_message
+    else:
+        loc = update.message
+    current_position = (loc.location.latitude, loc.location.longitude)
+    new_geo_user(user.id, current_position)
+    await update.message.reply_text(f'Спасибо.{current_position}',
+                                    reply_markup=markup)
+
+
+
 def main() -> None:
     """Запустите бота."""
     # Создайте приложение и передайте ему токен вашего бота.
@@ -249,18 +268,18 @@ def main() -> None:
     #     allow_reentry=False,
     #     fallbacks=[CommandHandler('stop', stop)]
     # )
-    # script_constructed_maps = ConversationHandler(
-    #     # Точка входа в диалог.
-    #     # В данном случае — команда /start. Она задаёт первый вопрос.
-    #     entry_points=[CommandHandler('constructed_maps', constructed_maps_command)],
-    #     # Состояние внутри диалога.
-    #     states={
-    #         0: [MessageHandler(filters.ALL & ~filters.COMMAND, asortiment)]
-    #     },
-    #     # Точка прерывания диалога. В данном случае — команда /stop.
-    #     allow_reentry=False,
-    #     fallbacks=[CommandHandler('my_maps', constructed_maps_comand)]
-    # )
+    script_maps = ConversationHandler(
+        # Точка входа в диалог.
+        # В данном случае — команда /start. Она задаёт первый вопрос.
+        entry_points=[CommandHandler('maps', maps_command)],
+        # Состояние внутри диалога.
+        states={
+            0: [MessageHandler(filters.LOCATION, location_command)]
+        },
+        # Точка прерывания диалога. В данном случае — команда /stop.
+        allow_reentry=False,
+        fallbacks=[CommandHandler('stop', stop)]
+    )
     script_return_maps = ConversationHandler(
         # Точка входа в диалог.
         # В данном случае — команда /start. Она задаёт первый вопрос.
@@ -298,10 +317,13 @@ def main() -> None:
     application.add_handler(CommandHandler('user_maps', user_maps_command))
     application.add_handler(CommandHandler('constructed', constructed_command))
 
+    application.add_handler(CommandHandler('KinoPoisk', constructed_command))
+
     # application.add_handler(script_registration)
-    # application.add_handler(script_catalog)
+    application.add_handler(script_maps)
     application.add_handler(script_return_maps)
     application.add_handler(CommandHandler("document", document_command))
+
     # по некомандному, то есть сообщению - повторить сообщение в Telegram
     # createBD()
     # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))

@@ -19,7 +19,8 @@ def createBD():  # инициализация класса
                      UNIQUE,
     username STRING,
     language STRING,
-    surname  STRING);"""
+    surname  STRING,
+    geo      STRING);"""
 
     maps = """CREATE TABLE maps (
     id    INTEGER UNIQUE
@@ -43,6 +44,14 @@ def add_user(first_name, id, username, language_code, last_name):
     con.cursor().execute(f'''INSERT INTO users(name, status, id_tg, username, language, surname)
                             VALUES('{first_name}', False, {id}, "{username}",
                             '{language_code}', '{last_name}')''')
+    con.commit()
+
+
+def new_geo_user(id, geo):
+    """Создаёт нового пользователя"""
+    con = sqlite3.connect('database.db', check_same_thread=False)
+    print(1)
+    con.cursor().execute(f"""UPDATE users SET geo='{geo}' WHERE id_tg='{id}'""")
     con.commit()
 
 
@@ -146,9 +155,6 @@ def remove_status(id_tg):
     con.commit()
 
 
-
-
-
 def get_name_maps():
     """Возвращает список имен всех карт"""
     con = sqlite3.connect('database.db', check_same_thread=False)
@@ -233,6 +239,7 @@ def get_no_admin_id():
     return con.cursor().execute(f'''SELECT id_tg FROM users WHERE status = False''')
 
 
+# new_geo_user('1446418763', 1)
 # print(get_status_maps('3', '1'))
 # get_info_for_base()
 # print(get_all_maps())
