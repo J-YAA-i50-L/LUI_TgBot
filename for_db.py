@@ -50,9 +50,14 @@ def add_user(first_name, id, username, language_code, last_name):
 def new_geo_user(id, geo):
     """Создаёт нового пользователя"""
     con = sqlite3.connect('database.db', check_same_thread=False)
-    print(1)
     con.cursor().execute(f"""UPDATE users SET geo='{geo}' WHERE id_tg='{id}'""")
     con.commit()
+
+
+def get_geo_user(id):
+    """Создаёт нового пользователя"""
+    con = sqlite3.connect('database.db', check_same_thread=False)
+    return con.cursor().execute(f"""SELECT geo FROM users WHERE id_tg='{id}'""").fetchall()[0][0]
 
 
 def get_answer(key_words):
@@ -239,6 +244,7 @@ def get_no_admin_id():
     return con.cursor().execute(f'''SELECT id_tg FROM users WHERE status = False''')
 
 
+# print(get_geo_user('1446418763'))
 # new_geo_user('1446418763', 1)
 # print(get_status_maps('3', '1'))
 # get_info_for_base()

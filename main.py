@@ -26,8 +26,10 @@ reply_keyboard = [['/maps', '/weather', '/music'],
 constructed_maps_keyboard = [['/user_maps', '/all_maps'],
                              ['/constructed'],
                              ['/return_maps']]
+get_return_maps_command_keyboard = [['/address', '/place']]
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
 constructed_maps_markup = ReplyKeyboardMarkup(constructed_maps_keyboard, one_time_keyboard=False)
+get_return_maps_command_markup = ReplyKeyboardMarkup(get_return_maps_command_keyboard, one_time_keyboard=False)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -73,7 +75,6 @@ async def location(update, context):
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Повторите сообщение пользователя."""
-    print(update.message.chat_id)
     await update.message.reply_text(update.message.text)
 
 
@@ -132,7 +133,7 @@ async def home_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     """Магазины на карте, когда будет выдана команда /geo."""
     try:
         maps = maps_global()
-        print(maps)
+
         await update.message.reply_photo(maps)
         await update.message.reply_text('У нас две точки по адресам:'
                                         '\n\t 1. г.Арзамас, просп. Ленина, 121, TЦ «Метро» 3 здание, 1 этаж'
@@ -166,7 +167,6 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Связь с админимтратором, когда будет выдана команда /admin."""
     if update.message.text == 'Сейчас':
         send_message()
-    print(context.user_data['0'])
 
     await update.message.reply_text('')
     return ConversationHandler.END
@@ -175,9 +175,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def send_message(flag, text=''):
     if flag:
         today = ':'.join([str(datetime.date.today().year), str(datetime.date.today().month), str(datetime.date.today().day)])
-        print(today)
         text = [i[1] for i in get_notification() if i[2] == today]
-        print(text)
     for i in get_no_admin_id():
         sendMessage(i, '\n'.join(text), TOKEN)
 
@@ -245,10 +243,38 @@ async def location_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         loc = update.message
     current_position = (loc.location.latitude, loc.location.longitude)
-    new_geo_user(user.id, current_position)
-    await update.message.reply_text(f'Спасибо.{current_position}',
-                                    reply_markup=markup)
+    coords = f'{current_position[1]},{current_position[0]}'
+    new_geo_user(user.id, coords)
 
+    await update.message.reply_text(f'Спасибо.'
+                                    f'{get_address_from_coords(coords)}\n'
+                                    f'Если вам нужно проложить маршрут до нужного адреса. В видите /address \n'
+                                    f'pass',
+                                    reply_markup=get_return_maps_command_markup)
+    return 1
+
+
+async def get_return_maps_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    command = update.message.text.upper()
+    if '/ADDRESS' == command:
+        await update.message.reply_text(f'В ведите адрес места в которое хотите попасть',
+                                        reply_markup=markup)
+        return 2
+
+
+async def get_address_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    address = update.message.text
+    user = update.effective_user
+    ll = get_geo_user(user.id)
+    ll1, spn1 = get_ll_span(address)
+    if ll and ll1 and spn1:
+        point = "{ll},ya_ru~{ll1},pm2rdm".format(ll=ll, ll1=ll1)
+        coords1 = ll.split(',')
+        coords2 = ll1.split(',')
+        ll2 = f'{(float(coords1[0]) + float(coords2[0])) / 2},{(float(coords1[1]) + float(coords2[1])) / 2}'
+        static_api_request = "http://static-maps.yandex.ru/1.x/?ll={ll2}&l=map&pt={point}".format(**locals())
+    await update.message.reply_photo(static_api_request)
+    await update.message.reply_text('Вы отмечены точкой "Я", а вам нужно в красную метку.')
 
 
 def main() -> None:
@@ -274,12 +300,15 @@ def main() -> None:
         entry_points=[CommandHandler('maps', maps_command)],
         # Состояние внутри диалога.
         states={
-            0: [MessageHandler(filters.LOCATION, location_command)]
+            0: [MessageHandler(filters.LOCATION, location_command)],
+            1: [MessageHandler(filters.COMMAND, get_return_maps_command)],
+            2: [MessageHandler(filters.TEXT, get_address_command)],
         },
         # Точка прерывания диалога. В данном случае — команда /stop.
         allow_reentry=False,
         fallbacks=[CommandHandler('stop', stop)]
     )
+
     script_return_maps = ConversationHandler(
         # Точка входа в диалог.
         # В данном случае — команда /start. Она задаёт первый вопрос.
