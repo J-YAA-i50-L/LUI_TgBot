@@ -146,13 +146,13 @@ def get_address_from_coords(coords):
         return "Не могу определить адрес по этой локации. Но мне это не помешает"
 
 
-# if __name__ == '__main__':
-#     ll, spn = get_ll_span("Арзамас, Парковая 14А")
-#     ll1, spn1 = get_ll_span(" Арзамас, просп. Ленина 121")
-#     if ll and spn and ll1 and spn1:
-#         point = "{ll},ya_ru~{ll1},pm2rdm".format(ll=ll, ll1=ll1)
-#         coords1 = ll.split(',')
-#         coords2 = ll1.split(',')
-#         ll2 = f'{(float(coords1[0]) + float(coords2[0])) / 2},{(float(coords1[1]) + float(coords2[1])) / 2}'
-#         static_api_request = "http://static-maps.yandex.ru/1.x/?ll={ll2}&spn=0.01,0.01&l=map&pt={point}".format(**locals())
-#         print(static_api_request)
+if __name__ == '__main__':
+    ll, spn = get_ll_span("Арзамас, Парковая 14А")
+    ll1, spn1 = get_ll_span(" Арзамас, просп. Ленина 121")
+    if ll and spn and ll1 and spn1:
+        point = "{ll},ya_ru~{ll1},pm2rdm".format(ll=ll, ll1=ll1)
+        coords1 = ll.split(',')
+        coords2 = ll1.split(',')
+        ll2 = f'{(float(coords1[0]) + float(coords2[0])) / 2},{(float(coords1[1]) + float(coords2[1])) / 2}'
+        static_api_request = "http://static-maps.yandex.ru/1.x/?ll={ll2}&spn=0.01,0.01&l=map&pt={point}".format(**locals())
+        print(static_api_request)
